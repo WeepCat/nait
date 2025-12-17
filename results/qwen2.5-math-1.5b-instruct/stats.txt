@@ -1,0 +1,4 @@
+Gaokao2023-Math-En pass@8: 0.6883 (265/385)
+MATH-500 pass@8: 0.7360 (368/500)
+gsm8k pass@8: 0.8560 (1129/1319)
+minervamath pass@8: 0.3860 (105/272)

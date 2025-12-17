@@ -1,0 +1,4 @@
+Gaokao2023-Math-En_eval pass@8: 0.7922 (305/385)
+MATH-500_eval pass@8: 0.8560 (428/500)
+gsm8k_eval pass@8: 0.9659 (1274/1319)
+minervamath_eval pass@8: 0.6213 (169/272)
