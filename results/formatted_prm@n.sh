@@ -8,7 +8,7 @@ models=(
     "qwen2.5-7b-instruct"
     "qwen2.5-14b-instruct"
     "qwen2.5-32b-instruct"
-    # "qwen2.5-3b-instruct"
+    "qwen2.5-3b-instruct"
 )
 
 datasets=(
@@ -24,8 +24,8 @@ do
     do  
         echo "正在转换 $filename ..."
         python results/formatted_prm@n.py \
-            --filename /root/prm/results/$model/$(basename $dataset).json \
-            --output "/root/prm/results/$model/$(basename ${dataset%.*})_prm@k_format.json" \
-        > "/root/prm/results/$model/$(basename ${dataset%.*})_transform_prm@k.log"
+            --filename ./results/$model/$(basename $dataset).json \
+            --output "./results/$model/$(basename ${dataset%.*})_prm@k_format.json" \
+        > "./results/$model/$(basename ${dataset%.*})_transform_prm@k.log"
     done
 done

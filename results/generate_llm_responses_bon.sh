@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# 任何命令失败立即退出（注意：这在并行场景下需要特殊处理）
 set -e
 
-# 退出时（无论成功/失败/中断）都关机
-trap 'echo "[$(date)] 脚本退出，10秒后关机... "; sleep 10; /bin/shutdown -h now' EXIT
+# trap 'echo "[$(date)] 脚本退出，10秒后关机... "; sleep 10; /bin/shutdown -h now' EXIT
 
 models=(
     "qwen2.5-math-7b-instruct"
@@ -39,7 +37,7 @@ run_model_pipeline() {
         n_responses=4
     fi
     
-    mkdir -p "/root/prm/results/$model"
+    mkdir -p "./results/$model"
     
     # 串行处理每个数据集
     for dataset in "${datasets[@]}"
@@ -51,9 +49,9 @@ run_model_pipeline() {
             --model "$model" \
             --batch_size $batch_size \
             --n_responses $n_responses \
-            --output "/root/prm/results/$model/$(basename $dataset).json" \
+            --output "./results/$model/$(basename $dataset).json" \
             --interval 10 \
-        > "/root/prm/results/$model/generate_$(basename $dataset).log" 2>&1
+        > "./results/$model/generate_$(basename $dataset).log" 2>&1
         
         echo "[$(date)] [$model] 完成数据集:  $dataset"
     done
