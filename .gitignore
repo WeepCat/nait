@@ -1,2 +1,5 @@
 *.log
 *.pyc
+.env
+./out_of_date/*
+./out_of_date

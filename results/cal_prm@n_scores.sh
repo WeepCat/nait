@@ -3,7 +3,7 @@
 set -e
 
 models=(
-    # "qwen2.5-math-1.5b-instruct"
+    "qwen2.5-math-1.5b-instruct"
     "qwen2.5-math-7b-instruct"
     "qwen2.5-7b-instruct"
     "qwen2.5-14b-instruct"
@@ -20,6 +20,7 @@ datasets=(
 
 prm_models=(
     "Qwen/Qwen2.5-Math-PRM-7B"
+    "RLHFlow/Llama3.1-8B-PRM-Mistral-Data"
 )
 
 for model in "${models[@]}"

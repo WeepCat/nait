@@ -20,6 +20,7 @@ datasets=(
 
 prm_models=(
     "Qwen/Qwen2.5-Math-PRM-7B"
+    "RLHFlow/Llama3.1-8B-PRM-Mistral-Data"
 )
 
 for model in "${models[@]}"
