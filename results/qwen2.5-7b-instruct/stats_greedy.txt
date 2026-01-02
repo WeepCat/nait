@@ -1,0 +1,4 @@
+gsm8k greedy: 0.9121 (1203/1319)
+MATH-500 greedy: 0.7400 (370/500)
+Gaokao2023-Math-En greedy: 0.6701 (258/385)
+minervamath greedy: 0.4301 (117/272)

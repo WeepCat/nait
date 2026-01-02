@@ -29,7 +29,100 @@ import json
 
 
 def cal_nait_prm_scores(input_path, output_path, model_name):
-    pass  # Placeholder for NAIT PRM score calculation implementation
+    # pass  # Placeholder for NAIT PRM score calculation implementation
+    def make_step_rewards(logits, pos_token_mask, candidate_tokens):
+        """
+        从 logits 中提取每个步骤的奖励分数
+        
+        Args:
+            logits:  模型输出的 logits，shape:  (batch_size, seq_len, vocab_size)
+            pos_token_mask: 标记 [POS] token **前一个位置**的 mask，shape:  (batch_size, seq_len)
+                            即该位置的输出用于预测 [POS]
+            candidate_tokens: [pos_tag_id, neg_tag_id]
+        
+        Returns:
+            list of list: 每个样本的步骤分数列表
+        """
+        # 获取候选 token 的 logits
+        candidate_logits = logits[:, :, candidate_tokens]  # (batch_size, seq_len, 2)
+        
+        # 计算 softmax 得到概率
+        probabilities = F.softmax(candidate_logits, dim=-1)  # (batch_size, seq_len, 2)
+        
+        # 提取 [POS] token 的概率（索引 0，因为 candidate_tokens = [pos_tag_id, neg_tag_id]）
+        pos_probabilities = probabilities[:, :, 0]  # (batch_size, seq_len)
+        
+        # 只保留 mask 位置的概率
+        masked_probs = pos_probabilities * pos_token_mask  # (batch_size, seq_len)
+        
+        # 提取每个样本的非零元素（即步骤分数）
+        all_scores_res = []
+        for i in range(masked_probs.size(0)):
+            sample_probs = masked_probs[i]  # (seq_len,)
+            # 提取非零位置的分数
+            step_scores = sample_probs[sample_probs != 0].cpu().tolist()
+            all_scores_res.append(step_scores)
+        
+        return all_scores_res
+        
+    # 读取 json 文件
+    with open(input_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    # 加载模型和分词器
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, 
+        device_map="auto", 
+        torch_dtype=torch.bfloat16,
+    ).eval()
+
+    # 获取 [POS]/[NEG] token ids
+    pos_tag_id = tokenizer.encode('[POS]')[-1]
+    neg_tag_id = tokenizer.encode('[NEG]')[-1]
+    candidate_tokens = [pos_tag_id, neg_tag_id]
+
+    base_model_name = os.path.basename(model_name)
+
+    # 计算每个 response 的 prm 得分
+    for item in tqdm(data, desc="Calculating PRM scores"):
+        prm_scores = []
+        problem = item["problem"]
+        for steps in item["steps"]:
+            prompt_str = ""
+            prompt_str += problem
+            step_rewards = []
+            for step in steps: # 在每个 step 后面添加 [POS]，计算该位置预测 [POS] 的概率作为奖励
+                prompt_str += "\n" + step + " [POS]"
+            # 一次性编码整个对话
+            input_ids = tokenizer.encode(
+                prompt_str, 
+                return_tensors="pt"
+            ).to(model.device)
+            
+            # 创建 mask：标记 [POS] token 前一个位置
+            # 模板格式:  ... [content_tokens] [POS]
+            # 我们需要标记 [POS] 前面的那个位置，该位置的输出预测
+            pos_token_mask = torch.zeros_like(input_ids, dtype=torch.float)
+            # 找到所有 [POS] token 的位置
+            pos_positions = (input_ids == pos_tag_id).nonzero(as_tuple=True)
+            # 对于每个 [POS] token，标记其前一个位置
+            for batch_idx, pos in zip(pos_positions[0], pos_positions[1]):
+                if pos > 0:  # 确保不越界
+                    pos_token_mask[batch_idx, pos - 1] = 1.0
+            # 只进行一次前向传播
+            with torch.no_grad():
+                logits = model(input_ids).logits
+            # 使用 make_step_rewards 提取分数
+            step_rewards = make_step_rewards(logits, pos_token_mask, candidate_tokens)
+            prm_scores.append(step_rewards[0])  # 只有一个样本
+        item[f"{base_model_name}_prm_scores"] = prm_scores
+        torch.cuda.empty_cache()
+
+    # 保存结果到新的 json 文件
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 
 def cal_mistral_prm_scores(input_path, output_path, model_name):
     
@@ -96,7 +189,7 @@ def cal_mistral_prm_scores(input_path, output_path, model_name):
         prm_scores = []
         problem = item["problem"]
         
-        for steps in item["steps"]: 
+        for steps in item["steps"]:
             # 构建完整的对话，一次性包含所有步骤
             conversation = []
             for k in range(len(steps)):
@@ -202,6 +295,119 @@ def cal_qwen_prm_scores(input_path, output_path, model_name):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def cal_shepherd_prm_scores(input_path, output_path, model_name):
+    # 读取 json 文件
+    with open(input_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    # 加载模型和分词器
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, 
+        device_map="auto", 
+        torch_dtype=torch.bfloat16,
+        trust_remote_code=True,
+    ).eval()
+    
+    good_token = '+'
+    bad_token = '-'
+    step_tag = 'ки'
+    candidate_tokens = tokenizer.encode(f"{good_token} {bad_token}")[1:]
+    step_tag_id = tokenizer.encode(f"{step_tag}")[-1]
+
+    base_model_name = os.path.basename(model_name)
+    # 计算每个 response 的 prm 得分
+    for item in tqdm(data, desc="Calculating PRM scores"):
+        prm_scores = []
+        problem = item["problem"]
+        for steps in item["steps"]:
+            prompt_str = ""
+            prompt_str += problem + " "
+            step_rewards = []
+            for i, step in enumerate(steps): # 在每个 step 后面添加 [POS]，计算该位置预测 [POS] 的概率作为奖励
+                if i != len(steps) - 1:
+                    prompt_str += step + f" {step_tag}\n"
+                else:
+                    prompt_str += step + f" {step_tag}"
+            input_id = torch.tensor([tokenizer.encode(prompt_str)]).to(model.device)
+
+            with torch.no_grad():
+                logits = model(input_id).logits[:, :, candidate_tokens]
+                scores = logits.softmax(dim=-1)[:, :, 0] 
+                step_scores = scores[input_id == step_tag_id]
+                prm_scores.append(step_scores.cpu().tolist())
+        item[f"{base_model_name}_prm_scores"] = prm_scores
+        torch.cuda.empty_cache()
+    
+    # 保存结果到新的 json 文件
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def cal_eurus_prm_scores(input_path, output_path, model_name):
+    def get_logps(model, inputs):
+        logits = model(input_ids = inputs['input_ids'], attention_mask = inputs['attention_mask']).logits
+        labels = inputs['labels'][:, 1:].clone().long()
+        logits = logits[:, :-1, :]
+        labels[labels == -100] = 0
+        per_token_logps = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
+        return per_token_logps
+
+    # 读取 json 文件
+    with open(input_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    # 加载模型和分词器
+    coef = 0.001
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    ref_model = AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-Math-7B-Instruct', device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True).eval()
+    
+    base_model_name = os.path.basename(model_name)
+    for item in tqdm(data, desc="Calculating PRM scores"):
+        prm_scores = []
+        problem = item["problem"]
+        for steps in item["steps"]:
+            input_ids = tokenizer.apply_chat_template([
+                {"role": "user", "content": problem},
+                {"role": "assistant", "content": "\n\n".join(steps)},
+            ], tokenize=True, add_generation_prompt=False, return_tensors='pt').to(model.device)
+            attention_mask = input_ids != tokenizer.pad_token_id
+            step_last_tokens = []
+
+            for step_num in range(0, len(steps) + 1):
+                conv = tokenizer.apply_chat_template([
+                    {"role":"user", "content": problem},
+                    {"role":"assistant", "content":"\n\n".join(steps[:step_num])},
+                ], tokenize=False, add_generation_prompt=False)
+                conv = conv.strip()
+                if step_num != 0 and step_num != len(steps):
+                    conv += '\n\n'
+                currect_ids = tokenizer.encode(conv, add_special_tokens=False)
+                step_last_tokens.append(len(currect_ids) - 2)
+            
+
+            inputs = {'input_ids': input_ids,'attention_mask': attention_mask, 'labels': input_ids}
+            label_mask = torch.tensor([[0] * step_last_tokens[0] + [1] * (input_ids.shape[-1] - step_last_tokens[0])]).to(model.device)
+            step_last_tokens = torch.tensor([step_last_tokens]).to(model.device)
+
+            with torch.no_grad():
+                per_token_logps = get_logps(model, inputs)
+                ref_per_token_logps = get_logps(ref_model, inputs)
+
+            raw_reward = per_token_logps - ref_per_token_logps
+            step_scores = coef * raw_reward * label_mask[:, 1:]
+            step_scores = step_scores.cumsum(-1)
+            step_scores = step_scores.gather(dim=-1, index=step_last_tokens[:, 1:])
+            prm_scores.append(step_scores.squeeze(0).cpu().tolist())
+            
+        item[f"{base_model_name}_prm_scores"] = prm_scores
+        torch.cuda.empty_cache()
+    
+    # 保存结果到新的 json 文件
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calculate PRM scores for responses")
     parser.add_argument("--filename", type=str, required=True, help="Input JSON file path")
@@ -211,8 +417,14 @@ if __name__ == "__main__":
 
     if args.model_name == "Qwen/Qwen2.5-Math-PRM-7B":
         cal_qwen_prm_scores(args.filename, args.output, args.model_name)
-    elif args.model_name == "RLHFlow/Llama3.1-8B-PRM-Mistral-Data":
+    elif args.model_name == "RLHFlow/Llama3.1-8B-PRM-Mistral-Data" or args.model_name == "RLHFlow/Llama3.1-8B-PRM-Deepseek-Data":
         cal_mistral_prm_scores(args.filename, args.output, args.model_name)
+    elif args.model_name == "peiyi9979/math-shepherd-mistral-7b-prm":
+        cal_shepherd_prm_scores(args.filename, args.output, args.model_name)
+    elif "EurusPRM" in args.model_name:
+        cal_eurus_prm_scores(args.filename, args.output, args.model_name)
+    elif "nait" in args.model_name.lower():
+        cal_nait_prm_scores(args.filename, args.output, args.model_name)
     else:
         raise NotImplementedError(f"Model {args.model_name} not supported yet.")
 

@@ -164,24 +164,30 @@ def check_prm_scores(input_path, reference_path, output_path, model_name):
         prm_min_key = f"{base_model_name}_prm_min"
         prm_max_key = f"{base_model_name}_prm_max"
         prm_product_key = f"{base_model_name}_prm_product"
-        prm_geom_mean_key = f"{base_model_name}_prm_geom_mean"
+        prm_sum_key = f"{base_model_name}_prm_sum"
 
         prm_means = item[prm_mean_key]
         prm_mins = item[prm_min_key]
-        prm_geom_means = item[prm_geom_mean_key]
+        prm_sums = item[prm_sum_key]
 
         best_mean_idx = prm_means.index(max(prm_means))
         best_min_idx = prm_mins.index(max(prm_mins))
         best_max_idx = item[prm_max_key].index(max(item[prm_max_key]))
         best_product_idx = item[prm_product_key].index(max(item[prm_product_key]))
-        best_geom_mean_idx = prm_geom_means.index(max(prm_geom_means))
+        best_sum_idx = prm_sums.index(max(prm_sums))
 
         best_mean_response = item["responses"][best_mean_idx]
         best_min_response = item["responses"][best_min_idx]
         best_max_response = item["responses"][best_max_idx]
         best_product_response = item["responses"][best_product_idx]
-        best_geom_mean_response = item["responses"][best_geom_mean_idx]
+        best_sum_response = item["responses"][best_sum_idx]
         
+        if "EurusPRM" not in base_model_name:
+            prm_geom_mean_key = f"{base_model_name}_prm_geom_mean"
+            prm_geom_means = item[prm_geom_mean_key]
+            best_geom_mean_idx = prm_geom_means.index(max(prm_geom_means))
+            best_geom_mean_response = item["responses"][best_geom_mean_idx]
+
         problem = item["problem"]
         ref_item = reference_dict.get(problem)
 
@@ -191,14 +197,18 @@ def check_prm_scores(input_path, reference_path, output_path, model_name):
             ref_min_response_idx = ref_item["responses"].index(best_min_response) if best_min_response in ref_item["responses"] else -1
             ref_max_response_idx = ref_item["responses"].index(best_max_response) if best_max_response in ref_item["responses"] else -1
             ref_product_response_idx = ref_item["responses"].index(best_product_response) if best_product_response in ref_item["responses"] else -1
-            ref_geom_mean_response_idx = ref_item["responses"].index(best_geom_mean_response) if best_geom_mean_response in ref_item["responses"] else -1
+            ref_sum_response_idx = ref_item["responses"].index(best_sum_response) if best_sum_response in ref_item["responses"] else -1
 
             item[f"{base_model_name}_prm_mean_label"] = ref_item["labels"][ref_mean_response_idx] if ref_mean_response_idx != -1 else None
             item[f"{base_model_name}_prm_min_label"] = ref_item["labels"][ref_min_response_idx] if ref_min_response_idx != -1 else None
             item[f"{base_model_name}_prm_max_label"] = ref_item["labels"][ref_max_response_idx] if ref_max_response_idx != -1 else None
             item[f"{base_model_name}_prm_product_label"] = ref_item["labels"][ref_product_response_idx] if ref_product_response_idx != -1 else None
-            item[f"{base_model_name}_prm_geom_mean_label"] = ref_item["labels"][ref_geom_mean_response_idx] if ref_geom_mean_response_idx != -1 else None
-    
+            item[f"{base_model_name}_prm_sum_label"] = ref_item["labels"][ref_sum_response_idx] if ref_sum_response_idx != -1 else None
+
+            if "EurusPRM" not in base_model_name:
+                ref_geom_mean_response_idx = ref_item["responses"].index(best_geom_mean_response) if best_geom_mean_response in ref_item["responses"] else -1
+                item[f"{base_model_name}_prm_geom_mean_label"] = ref_item["labels"][ref_geom_mean_response_idx] if ref_geom_mean_response_idx != -1 else None
+                
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 

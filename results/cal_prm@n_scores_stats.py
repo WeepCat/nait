@@ -56,13 +56,17 @@ def cal_prm_n_scores_stats(input_path, output_path, model_name):
         prm_max = [max(scores) for scores in prm_scores]
         prm_min = [min(scores) for scores in prm_scores]
         prm_product = [torch.prod(torch.tensor(scores)).item() for scores in prm_scores]
-        prm_geom_mean = [torch.exp(torch.mean(torch.log(torch.tensor(scores)))).item() for scores in prm_scores]
+        prm_sum = [sum(scores) for scores in prm_scores]
+        
+        if "EurusPRM" not in base_model_name:
+            prm_geom_mean = [torch.exp(torch.mean(torch.log(torch.tensor(scores)))).item() for scores in prm_scores]
+            item[f"{base_model_name}_prm_geom_mean"] = prm_geom_mean
         
         item[f"{base_model_name}_prm_max"] = prm_max
         item[f"{base_model_name}_prm_product"] = prm_product
         item[f"{base_model_name}_prm_min"] = prm_min
         item[f"{base_model_name}_prm_mean"] = prm_mean
-        item[f"{base_model_name}_prm_geom_mean"] = prm_geom_mean
+        item[f"{base_model_name}_prm_sum"] = prm_sum
 
     # 保存结果到新的 json 文件
     with open(output_path, "w", encoding="utf-8") as f:

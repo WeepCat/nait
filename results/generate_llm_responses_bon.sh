@@ -5,10 +5,10 @@ set -e
 # trap 'echo "[$(date)] 脚本退出，10秒后关机... "; sleep 10; /bin/shutdown -h now' EXIT
 
 models=(
-    "qwen2.5-math-7b-instruct"
     "qwen2.5-math-1.5b-instruct"
-    "qwen2.5-7b-instruct"
+    "qwen2.5-math-7b-instruct"
     "qwen2.5-3b-instruct"
+    "qwen2.5-7b-instruct"
     "qwen2.5-14b-instruct"
     "qwen2.5-32b-instruct"
 )
@@ -44,7 +44,7 @@ run_model_pipeline() {
     do
         echo "[$(date)] [$model] 开始处理数据集:  $dataset"
         
-        python results/generate.py \
+        python results/generate_bon.py \
             --dataset "$dataset" \
             --model "$model" \
             --batch_size $batch_size \
@@ -82,7 +82,7 @@ echo ""
 
 # 等待所有后台任务完成，并记录失败的任务
 failed=0
-for i in "${! pids[@]}"
+for i in "${!pids[@]}"
 do
     pid=${pids[$i]}
     model=${models[$i]}

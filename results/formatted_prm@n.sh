@@ -5,10 +5,10 @@ set -e
 models=(
     "qwen2.5-math-1.5b-instruct"
     "qwen2.5-math-7b-instruct"
+    "qwen2.5-3b-instruct"
     "qwen2.5-7b-instruct"
     "qwen2.5-14b-instruct"
     "qwen2.5-32b-instruct"
-    "qwen2.5-3b-instruct"
 )
 
 datasets=(

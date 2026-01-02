@@ -70,6 +70,7 @@ def run_eval_prm_k(input_file: str, model_name: str, output_file: str, k: int = 
     passed_max = 0
     passed_product = 0
     passed_geom_mean = 0
+    passed_sum = 0
 
     base_model_name = os.path.basename(model_name)
 
@@ -84,12 +85,15 @@ def run_eval_prm_k(input_file: str, model_name: str, output_file: str, k: int = 
             passed_product += 1
         if item.get(f"{base_model_name}_prm_geom_mean_label") == 1:
             passed_geom_mean += 1
+        if item.get(f"{base_model_name}_prm_sum_label") == 1:
+            passed_sum += 1
 
     prm_mean_rate = passed_mean / total_problems if total_problems > 0 else 0.0
     prm_min_rate = passed_min / total_problems if total_problems > 0 else 0.0
     prm_max_rate = passed_max / total_problems if total_problems > 0 else 0.0
     prm_product_rate = passed_product / total_problems if total_problems > 0 else 0.0
     prm_geom_mean_rate = passed_geom_mean / total_problems if total_problems > 0 else 0.0
+    prm_sum_rate = passed_sum / total_problems if total_problems > 0 else 0.0
 
     with open(output_file, "a", encoding="utf-8") as f:
         f.write(f"{dataset_name} {base_model_name}@{k} mean: {prm_mean_rate:.4f} ({passed_mean}/{total_problems})\n")
@@ -97,12 +101,14 @@ def run_eval_prm_k(input_file: str, model_name: str, output_file: str, k: int = 
         f.write(f"{dataset_name} {base_model_name}@{k} max: {prm_max_rate:.4f} ({passed_max}/{total_problems})\n")
         f.write(f"{dataset_name} {base_model_name}@{k} product: {prm_product_rate:.4f} ({passed_product}/{total_problems})\n")
         f.write(f"{dataset_name} {base_model_name}@{k} geom_mean: {prm_geom_mean_rate:.4f} ({passed_geom_mean}/{total_problems})\n")
+        f.write(f"{dataset_name} {base_model_name}@{k} sum: {prm_sum_rate:.4f} ({passed_sum}/{total_problems})\n")
 
     print(f"{dataset_name} {base_model_name}@{k} mean: {prm_mean_rate:.4f} ({passed_mean}/{total_problems}) saved to {output_file}")
     print(f"{dataset_name} {base_model_name}@{k} min: {prm_min_rate:.4f} ({passed_min}/{total_problems}) saved to {output_file}")
     print(f"{dataset_name} {base_model_name}@{k} max: {prm_max_rate:.4f} ({passed_max}/{total_problems}) saved to {output_file}")
     print(f"{dataset_name} {base_model_name}@{k} product: {prm_product_rate:.4f} ({passed_product}/{total_problems}) saved to {output_file}")
     print(f"{dataset_name} {base_model_name}@{k} geom_mean: {prm_geom_mean_rate:.4f} ({passed_geom_mean}/{total_problems}) saved to {output_file}")
+    print(f"{dataset_name} {base_model_name}@{k} sum: {prm_sum_rate:.4f} ({passed_sum}/{total_problems}) saved to {output_file}")
     
 if __name__ == "__main__":
     parser = argparse. ArgumentParser(description="Transform JSON format of math problem responses")
